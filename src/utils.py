@@ -19,6 +19,14 @@ import umap
 from sklearn.cluster import KMeans
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from sklearn.preprocessing import StandardScaler, normalize
+import warnings
+warnings.filterwarnings('ignore')
+import sys
+sys.path.insert(0, '/home/ejafari/alignment/Git/src/')
+from FW import *
+from evals import *
+from rmCls import *
+from similarity import *
 
 
 
@@ -98,51 +106,6 @@ def rename_gene_to_chr(df):
         gene_dict[new_name] = df.index[i] 
         df.rename({df.index[i]: new_name}, inplace=True)
     return df, gene_dict
-
-
-
-def clustering(data_adrs, resl=0.4, transpose=False): 
-    adata = sc.read(
-    data_adrs,  
-    var_names='gene_symbols',                  # use gene symbols for the variable names (variables-axis index)
-    cache=True,
-    delimiter='\t')  
-    print(adata)
-    # this is unnecessary if using `var_names='gene_ids'` in `sc.read_10x_mtx`
-    adata.var_names_make_unique()
-    
-    if adata.to_df().shape[0] > 1050 or transpose == True:
-        adata = adata.T
-    print(adata)
-
-    # Computing neighborhood graph
-    sc.pp.neighbors(adata, n_neighbors=20, n_pcs=0, metric='cosine')
-
-    # Embedding the neighborhood graph
-    sc.tl.leiden(adata, resolution=resl)
-    sc.tl.umap(adata)
-    sc.tl.tsne(adata)
-    
-    # Figure
-    rcParams['figure.figsize'] = 9, 9
-    sc.pl.umap(adata, color=['leiden'], legend_loc='on data', legend_fontsize=12, legend_fontoutline=2,frameon=False, title='UMAP', palette='gist_rainbow')#
-    sc.pl.tsne(adata, color=['leiden'],  legend_loc='on data', legend_fontsize=12, legend_fontoutline=2,frameon=False, title='tSNE', palette='gist_rainbow')
-
-    # Group cells based on their cluster membership
-    E = adata.to_df().reset_index()
-    df = pd.DataFrame(adata.obs['leiden']).reset_index().rename(columns={'index': 'cell'})
-    clusters = []
-    for i in range (df['leiden'].nunique()):
-        cluster = df[df['leiden'].cat.codes==i]['cell'].tolist()
-        clusters.append(cluster)
-        #print(f"Size of cluster {i}: {len(cluster)}")
-
-    Es = []
-    for i in range (df['leiden'].nunique()):
-        Ei = E.loc[E['index'].isin(clusters[i])].set_index('index')
-        print(i, ":", len(Ei.index.values.tolist()))
-        Es.append(Ei)
-    return adata
 
 
 
@@ -237,14 +200,3 @@ def unit_normalize(data, norm="l2", sample_wise=True):
 
 
 
-def get_ranking(arr):
-    '''
-    Returns rankings in an array with possible duplicate values
-    '''
-    u, v = np.unique(arr, return_inverse=True)
-    ranks = (np.cumsum(np.bincount(v)) - 1)[v]
-#     if len(arr) < 6:
-#         print(ranks)
-    max_rank = np.max(ranks) + 1
-    ranks = [max_rank-i for i in ranks]
-    return np.array(ranks)
