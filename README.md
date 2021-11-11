@@ -1,6 +1,6 @@
 # AIscEA: Integration of Single-cell Gene Expression and Chromatin Accessibility via Their Biological Consistency
 
-![alt text](img/overview_new_only.pdf)
+![alt text](img/overview_new_only.png)
 
 ## Enviroment
 python >= 3.6
