@@ -264,6 +264,10 @@ def get_shared_markers(markers_rna, markers_ATAC, threshold):
         cols_float.append(str(i) + "_l")
         
     markers_rna[cols_float] = markers_rna[cols_float].astype(float) 
+    
+    for i in range(len(markers_ATAC.columns) // 3):
+        cols_float.append(str(i) + "_l")
+        
     markers_ATAC[cols_float] = markers_ATAC[cols_float].astype(float) 
     res_index = [str(s) + '_rna' for s in list(range(len(markers_rna.columns) // 3))]
     res_col = [str(s) + '_atac' for s in list(range(len(markers_rna.columns) // 3))]
@@ -539,7 +543,7 @@ def clustering(data_adrs, resl=0.4, transpose=False, rm_b=False):
 
 
 
-def scRNAseq_clustering_original(data_adrs, filtering=False, resl=0.4, highly_var=False, tr=True): 
+def scRNAseq_clustering_original(data_adrs, filtering=False, resl=0.4, highly_var=False, tr=True, n_pc=0): 
     adata = sc.read(
     data_adrs,  
     var_names='gene_symbols',                  # use gene symbols for the variable names (variables-axis index)
@@ -594,7 +598,8 @@ def scRNAseq_clustering_original(data_adrs, filtering=False, resl=0.4, highly_va
     ##################################################################################
     # After here, it's the same as clustering fuction above
     # Computing neighborhood graph
-    sc.pp.neighbors(adata, n_neighbors=20, n_pcs=0, metric='cosine')
+    sc.tl.pca(adata, svd_solver='arpack')
+    sc.pp.neighbors(adata, n_neighbors=20, n_pcs=n_pc, metric='cosine')
     # Embedding the neighborhood graph
     sc.tl.leiden(adata, resl)
     sc.tl.umap(adata)
@@ -690,7 +695,7 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
         union_markers_rna = get_union_marker_genes(markers_rna, col_ind)
         union_mrakers_atac = get_union_marker_genes(markers_atac, col_ind)
         intersect_marker_genes = (union_markers_rna & union_mrakers_atac)
-        print("Intersect: ", len(intersect_marker_genes))
+#         print("Intersect: ", len(intersect_marker_genes))
 
         # Save cells of rna and atac clusters in two seperate dictionaries
         clusters_r = dict()
@@ -719,7 +724,7 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
             rna_k_all_genes.append(rna[rna.obs.loc[cells_in_cluster_rna].index, :].to_df())
             # Only marker genes
             adata_rna_k = rna[rna.obs.loc[cells_in_cluster_rna].index, markers_rna_k]
-            print("RNA: ", adata_rna_k.shape)
+#             print("RNA: ", adata_rna_k.shape)
 
             # marker genes in this cluster of ATAC
             markers_atac_k = markers_atac[str(atac_k) + "_n"].dropna().values
@@ -727,11 +732,11 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
             # DataFrame of expression matrix for each cluster
             atac_k_all_genes.append(atac_cis_on_org[atac_cis_on_org.obs.loc[cells_in_cluster_atac].index, :].to_df())
             adata_atac_k = atac_cis_on_org[atac_cis_on_org.obs.loc[cells_in_cluster_atac].index, markers_atac_k]
-            print("ATAC: ", adata_atac_k.shape)
+#             print("ATAC: ", adata_atac_k.shape)
 
-            print("------------------------before Kmeans----------------------")
+#             print("------------------------before Kmeans----------------------")
             time2 = time.time()
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+#             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
 
             ########################################### KMeans #################################
             if adata_rna_k.shape[0] > adata_atac_k.shape[0]:
@@ -746,9 +751,9 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
                 atac_multi_cells_clusters[col_ind[rna_k]] = atac_multicell_df
                 rna_multi_cells_clusters[rna_k] = adata_rna_k.to_df()
 
-            print("------------------------after Kmeans----------------------")
+#             print("------------------------after Kmeans----------------------")
             time2 = time.time()
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+#             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
 
             ################# Calculate logFC for each cell based on its cluster's marker genes #################
             log2fc_rna_cluster = calc_log2fc_vectors(rna_multi_cells_clusters[rna_k], rna.to_df()[intersect_marker_genes], verbose=False)
@@ -763,13 +768,13 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
 
             clusters_r_intersect[rna_k] = pd.DataFrame(log2fc_rna_cluster)
             clusters_a_intersect[atac_k] = pd.DataFrame(log2fc_atac_cluster)
-            print("------------------------after multicells----------------------")
+#             print("------------------------after multicells----------------------")
             time2 = time.time()
-            print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+#             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
 
-        print("------------------------before similarity----------------------")  
+#         print("------------------------before similarity----------------------")  
         time2 = time.time()
-        print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+#         print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
         ################################## Cell level similarities between RNA and ATAC  ##################################
         sim_all = dict()
         sim_all_non_scaled = dict()
@@ -779,7 +784,7 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
         # For each cluster
         for cls_i, cls_a in col_ind.items():
             expr_vect1_greater_dict = dict()
-            print(cls_i, cls_a)
+#             print(cls_i, cls_a)
             sim_df = pd.DataFrame()
 
             for cell1 in clusters_r[cls_i].index:
@@ -788,11 +793,11 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
                 expr_vect1_greater = expr_vect1[expr_vect1 >= 1].sort_values(ascending=False)
         #         print(cell1, expr_vect1_greater)
                 expr_vect1_greater_dict[cell1] = expr_vect1_greater
-                if print_p:
-                    print('RNA')
-                    print_p = False       
+#                 if print_p:
+#                     print('RNA')
+#                     print_p = False       
             time2 = time.time()
-            print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+#             print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
 
             print_p = True
             for cell2 in clusters_a[cls_a].index:
@@ -812,23 +817,23 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
                     indecies_in_rna = np.where(marker_list)[0]
                     if True: #Top 100
                         indecies_in_rna = np.asarray([i for i in indecies_in_rna if i <= 100])
-                    if print_p:
-                        print('ATAC')
-                        print("#Genes shared and greater than 1 in RNA and ATAC: ", len(shared_genes_g_1))
-                        print_p = False
-                        print(indecies_in_rna)
+#                     if print_p:
+#                         print('ATAC')
+#                         print("#Genes shared and greater than 1 in RNA and ATAC: ", len(shared_genes_g_1))
+#                         print_p = False
+#                         print(indecies_in_rna)
 
 
                     sim_df.loc[cell1, cell2] = np.sum(np.sqrt(1 / (indecies_in_rna + 1)))
             sim_all[cls_i] = sim_df/np.max(sim_df.to_numpy()) # scale
         print("------------------------after RNA-ATAC similarity----------------------")   
         time2 = time.time()
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+        #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
 
 
-        print("------------------------before similarity RNA-RNA and ATAC-ATAC ----------------------")  
+        #print("------------------------before similarity RNA-RNA and ATAC-ATAC ----------------------")  
         time2 = time.time()
-        print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)   
+        #print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)   
         sim_rna_all = dict()
         sim_atac_all = dict()
         # For each cluster    
@@ -844,7 +849,7 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
 
         print("------------------------before FW----------------------")   
         time2 = time.time()
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)        
+        #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)        
 
         for n_neigh in [3]:
             levs = [2]
@@ -877,12 +882,12 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
 
                     X = adj_rna[i].copy()
                     Y = adj_atac[atac_i].copy()
-                    print(X.shape, Y.shape)
+#                     print(X.shape, Y.shape)
 
                     X_mult_sim = np.multiply(X, sim_rna_all[i][0])
                     Y_mult_sim = np.multiply(Y, sim_atac_all[atac_i][0])
 
-                    print("************************************ Cluster ", i, "************************************ ")
+#                     print("************************************ Cluster ", i, "************************************ ")
                     for l in lambds:
                         for n_iter in range(n_runs):
                             final_P, col_ind_cells, frac, j_p, fracs_list1, fracs_list2, algn_dict = run_fw(rna, atac_cis_on_org, X_mult_sim.values, Y_mult_sim.values, sim_all[i], rna_multi_cells_clusters, atac_multi_cells_clusters, col_ind, i, 40, l) # gamma='opt' default # gamma='opt' default
@@ -895,7 +900,7 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
                 #                 np.save(str(i) + "_" + str(col_ind[i]) + str(n_neigh) + 'knn_marker_genes_thr_' + str(my_threshold) + '_level_' + str(lev) + "_" +  str(n_iter) +  '_fracs1.npy', fracs_list1) # save
                 #                 np.save(str(i) + "_" + str(col_ind[i])  + str(n_neigh) + 'knn_marker_genes_thr_' + str(my_threshold) + '_level_' + str(lev) +  "_" + str(n_iter) +   '_fracs2.npy', fracs_list2) # save 
                 #display(fosccttm_df)
-                print(n_neigh, my_threshold)
+#                 print(n_neigh, my_threshold)
                 #             fosccttm_df.to_csv(str(n_neigh) + 'knn_marker_genes_thr_' + str(my_threshold) + '_level_' + str(lev) + '.csv', index=True, header=True, sep='\t')
 
     # X on Y
