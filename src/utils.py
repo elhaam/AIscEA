@@ -23,7 +23,7 @@ import warnings
 warnings.filterwarnings('ignore')
 import sys
 sys.path.insert(0, '/home/ejafari/alignment/Git/src/')
-from FW import *
+from AIscEA import *
 from evals import *
 from rmCls import *
 from similarity import *

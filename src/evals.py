@@ -24,7 +24,7 @@ warnings.filterwarnings('ignore')
 import sys
 sys.path.insert(0, '/home/ejafari/alignment/Git/src/')
 from utils import *
-from FW import *
+from AIscEA import *
 from evals import *
 from rmCls import *
 from similarity import *
@@ -130,14 +130,14 @@ def calc_foscttm(rna, atac_cis_on_org, data1, data2, col_ind_cells, similarity, 
     cells_in_cluster_rna = get_cells_cluster(rna, cluster_num)
     cells_in_cluster_atac = get_cells_cluster(atac_cis_on_org, col_ind[cluster_num])
     
-    print('Inside calc_foscttm: ')
+#     print('Inside calc_foscttm: ')
 #     display(atac_cis_on_org.to_df().head())
-    print(len(set(cells_in_cluster_rna) & set(cells_in_cluster_atac)))
-    print("Check: ", len(cells_in_cluster_rna), len(cells_in_cluster_atac), col_ind[cluster_num])
+#     print(len(set(cells_in_cluster_rna) & set(cells_in_cluster_atac)))
+#     print("Check: ", len(cells_in_cluster_rna), len(cells_in_cluster_atac), col_ind[cluster_num])
     
     adata_rna_k = rna[rna.obs.loc[cells_in_cluster_rna].index].to_df() # ALL genes. TODO: explore when using ONLY MARKER genes 
     adata_atac_k = atac_cis_on_org[atac_cis_on_org.obs.loc[cells_in_cluster_atac].index].to_df() # ALL genes. TODO: explore when using ONLY MARKER genes
-    print('Inside calc_foscttm, adata_atac_k: ')
+#     print('Inside calc_foscttm, adata_atac_k: ')
 #     display(adata_atac_k.head())
     
     for i in range(len(col_ind_cells)):
@@ -197,7 +197,7 @@ def calc_foscttm(rna, atac_cis_on_org, data1, data2, col_ind_cells, similarity, 
     frac2_mean = np.mean(fracs2) / (len(atac_cis_on_org) - 1)
     
     fosccttm = np.mean([frac1_mean, frac2_mean])
-    print(len(adata_rna_k), len(adata_atac_k), len(fracs1), frac1_mean, len(fracs2), frac2_mean, fosccttm)
+#     print(len(adata_rna_k), len(adata_atac_k), len(fracs1), frac1_mean, len(fracs2), frac2_mean, fosccttm)
     return fracs1, fracs2, fosccttm, data1_align_dict
 
 

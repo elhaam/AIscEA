@@ -40,9 +40,9 @@ from collections import Counter
 import sys
 sys.path.insert(0, '/home/ejafari/alignment/Git/src/')
 from utils import *
-from FW import *
-from evals import *
 from rmCls import *
+from AIscEA import *
+from evals import *
 
 
 
@@ -212,7 +212,7 @@ def find_multi_cells(adata_k, n_clusters):
     # drop the cells with frequencies greater than 1
 #     print(to_be_dropped)
     cluster_df = cluster_df.drop(to_be_dropped)
-    print("After combining multi-cells: ", cluster_df.shape) 
+#     print("After combining multi-cells: ", cluster_df.shape) 
     return cluster_df
 
 
@@ -234,11 +234,11 @@ def cluster_mapping(markers_rna, markers_atac, rna, atac_cis_on_org):
     n, m = len(set(rna.obs['leiden'])), len(set(atac_cis_on_org.obs['leiden']))
     df_aggr = pd.DataFrame(np.zeros((n,m)), columns=np.arange(0,m), index=np.arange(0,n))
     for my_threshold in np.arange(0.0, 1, 0.1):
-        print(my_threshold)
+#         print(my_threshold)
 
         row_ind, col_ind, res = match_clusters(markers_rna, markers_atac, method="rank_rna_shared", verbose=False, threshold=my_threshold, top_100=True, disp_res=False)
 #         display(res)
-        print(my_threshold.round(1), col_ind)
+#         print(my_threshold.round(1), col_ind)
         
 
 
@@ -280,14 +280,14 @@ def cluster_mapping(markers_rna, markers_atac, rna, atac_cis_on_org):
                         ratio_greater[list(cluster_map_S_sorted.keys())[ind]] = 1
 
 
-        print(col_ind)
+#         print(col_ind)
 #         print(ratio_greater)
         ratio_greater = {k: v / iter_i for k, v in ratio_greater.items()}
         p_val_new = {k: 1 - v for k, v in ratio_greater.items()}
 #         a = {k: v / total for k, v in a.iteritems()}
-        print("P-value: ", p_val_new)
+#         print("P-value: ", p_val_new)
 
-        print("$$$$$$$ \n ")
+#         print("$$$$$$$ \n ")
         
 #         col_ind_cor = dict()
 #         for i in sorted(set(rna.obs['leiden'])):
@@ -313,8 +313,10 @@ def cluster_mapping(markers_rna, markers_atac, rna, atac_cis_on_org):
         #         ATAC
 #                 atac_cis_on_org = rm_cls(atac_cis_on_org, col_ind[row])     
         
-                
-    display(df_aggr)
+#     try:            
+#         display(df_aggr)
+#     except:
+#         pass
     return df_aggr, rna, atac_cis_on_org
 
 
@@ -322,24 +324,26 @@ def extract_mapped_clusters(rna, markers_rna, atac_cis_on_org, markers_atac, p_v
     '''
     After mapping the clusters together and calculating p-values: keep only cluster mapping with good p-values
     '''
-    
     df_aggr, rna, atac_cis_on_org = cluster_mapping(markers_rna, markers_atac, rna, atac_cis_on_org)
     # Keep clusters with siginificant p-values (threshold = 0.01) for at least 6 log2FC out of 10
     df = df_aggr[df_aggr >= p_val_count]
-    col_ind_cor = {k:v for (k, v) in list(df.stack().index)}
-    print("\nMapped clusters between Domain1 and Domain2: ", col_ind_cor)
+    try:
+        col_ind_cor = {k:v for (k, v) in list(df.stack().index)}
+#         print("\nMapped clusters between Domain1 and Domain2: ", col_ind_cor)
 
-    print("\nRemoving non-significant clusters.")
-    # Remove clusters with bad p-value which are not in col_ind_corr
-    for cls_rna in sorted(set(rna.obs['leiden'])):
+#         print("\nRemoving non-significant clusters.")
+        # Remove clusters with bad p-value which are not in col_ind_corr
+        for cls_rna in sorted(set(rna.obs['leiden'])):
 
-        if int(cls_rna) not in col_ind_cor.keys():
-            # Remove
-            rna = rm_cls(rna, cls_rna)
+            if int(cls_rna) not in col_ind_cor.keys():
+                # Remove
+                rna = rm_cls(rna, cls_rna)
 
-    for cls_atac in sorted(set(atac_cis_on_org.obs['leiden'])):
-        if int(cls_atac) not in col_ind_cor.values():
-            # Remove
-            atac_cis_on_org = rm_cls(atac_cis_on_org, cls_atac)
-    return col_ind_cor, rna, atac_cis_on_org
-
+        for cls_atac in sorted(set(atac_cis_on_org.obs['leiden'])):
+            if int(cls_atac) not in col_ind_cor.values():
+                # Remove
+                atac_cis_on_org = rm_cls(atac_cis_on_org, cls_atac)
+        return col_ind_cor, rna, atac_cis_on_org
+    # When no mapped clusters overall
+    except IndexError:
+        return None, None, None

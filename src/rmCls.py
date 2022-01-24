@@ -37,10 +37,21 @@ warnings.filterwarnings('ignore')
 import sys
 sys.path.insert(0, '/home/ejafari/alignment/Git/src/')
 from utils import *
-from FW import *
+from AIscEA import *
 from evals import *
-from similarity import *
+# from similarity import *
 
+def rm_cls(adata, cls):
+    '''
+     Removes the  cells that belong to cluster cls
+    '''
+    cls = str(cls)
+    # Get the list of cells in the cluster
+    dropped_cells = adata.obs[adata.obs['leiden'] == cls].index
+    drop_list = adata.to_df().index.isin(dropped_cells)
+    # Remove the cluster that is smaller than min_cells
+    adata = adata[~drop_list, :]
+    return adata
 
 
 def rm_tiny_cluster(adata_r, adata_a, markers_r, markers_a, min_cells=150, rm_correspondence=True):
@@ -79,15 +90,5 @@ def rm_tiny_cluster(adata_r, adata_a, markers_r, markers_a, min_cells=150, rm_co
     return adata_r, adata_a, markers_r, markers_a
     
 
-def rm_cls(adata, cls):
-    '''
-     Removes the  cells that belong to cluster cls
-    '''
-    cls = str(cls)
-    # Get the list of cells in the cluster
-    dropped_cells = adata.obs[adata.obs['leiden'] == cls].index
-    drop_list = adata.to_df().index.isin(dropped_cells)
-    # Remove the cluster that is smaller than min_cells
-    adata = adata[~drop_list, :]
-    return adata
+
 

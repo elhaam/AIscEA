@@ -133,12 +133,13 @@ def calc_log2fc(df, cell_name, gene,  verbose):
     
         
     
-def calc_log2fc_vectors(df_cluster, df_all, verbose, method='avg'):
+def calc_log2fc_vectors(df_cluster, df_all, verbose, method='avg', fast=False):
     '''
     Returns foldchange and log2foldchange for all cells and all genes
     df_cluster: expression matrix including cells in the cluster and their marker genes
     df_all: expression matrix including all cells and genes
     '''
+
     if method == 'avg':
 #         display(df_cluster.head())
 #         print(df_cluster.mean(axis=0))
@@ -150,7 +151,7 @@ def calc_log2fc_vectors(df_cluster, df_all, verbose, method='avg'):
 #         print(df_cluster.mean(axis=0))
 #         print('.............')
         return df_cluster
-    
+
     # Values of real logFC
     else:
         lfc_cluster = dict()
@@ -168,6 +169,7 @@ def calc_log2fc_vectors(df_cluster, df_all, verbose, method='avg'):
             lfc_cluster[cell_name] = lfc_cell
         #display(lfc_df)
         return lfc_cluster
+
 
 
 def get_union_marker_genes(df, col_ind):
@@ -265,6 +267,7 @@ def get_shared_markers(markers_rna, markers_ATAC, threshold):
         
     markers_rna[cols_float] = markers_rna[cols_float].astype(float) 
     
+    cols_float = []
     for i in range(len(markers_ATAC.columns) // 3):
         cols_float.append(str(i) + "_l")
         
@@ -279,9 +282,12 @@ def get_shared_markers(markers_rna, markers_ATAC, threshold):
         df_rna = markers_rna[[str(col) + "_n", str(col)+ "_s", str(col)+"_l"]].dropna().set_index(str(col) + "_n")
         # For all clusters in ATAC
         col2 = col
-        df_atac = markers_ATAC[[str(col2) + "_n", str(col2)+ "_s", str(col2)+"_l"]].dropna().set_index(str(col2) + "_n")
-        df3 = pd.merge(df_rna, df_atac, left_index=True, right_index=True)
-        shared_markers.append(df3.index)
+        try:
+            df_atac = markers_ATAC[[str(col2) + "_n", str(col2)+ "_s", str(col2)+"_l"]].dropna().set_index(str(col2) + "_n")
+            df3 = pd.merge(df_rna, df_atac, left_index=True, right_index=True)
+            shared_markers.append(df3.index)
+        except KeyError :
+            pass
     return shared_markers
     
 
@@ -671,7 +677,11 @@ def scRNAseq_clustering_original(data_adrs, filtering=False, resl=0.4, highly_va
 
 def run_fw(rna, atac_cis_on_org, X, Y, similarity,   rna_multi_clusters, atac_multi_cells_clusters, col_ind, cluster, n_iter, lambd, ignore=False, show_details=False, verbose=False, gamma='opt'):
 #     print('Run_fw', n_iter)
-    final_P, col_ind_cells, j_p = solve_FW(Y, X, similarity.values, lambd, n_iter, verbose, show_details, gamma)
+    # If similarity is dataframe
+    try:
+        final_P, col_ind_cells, j_p = solve_FW(Y, X, similarity.values, lambd, n_iter, verbose, show_details, gamma)
+    except AttributeError:
+        final_P, col_ind_cells, j_p = solve_FW(Y, X, similarity, lambd, n_iter, verbose, show_details, gamma)
     ############################# Calculate FOCCTTM score #############################
     fracs1, fracs2, fo, align_dict = calc_foscttm(rna, atac_cis_on_org, rna_multi_clusters[cluster], atac_multi_cells_clusters[col_ind[cluster]], col_ind_cells, similarity, cluster, col_ind, ignore, show_details)
     if show_details:
@@ -689,7 +699,6 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
     time1 = time.time()
     aligns_dict = dict()
 
-    # Hyperparameter 1
     for my_threshold in [0]:
         print(my_threshold)
         union_markers_rna = get_union_marker_genes(markers_rna, col_ind)
@@ -739,7 +748,7 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
 #             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
 
             ########################################### KMeans #################################
-            if adata_rna_k.shape[0] > adata_atac_k.shape[0]:
+            if adata_rna_k.shape[0] >= adata_atac_k.shape[0]:
                 # Perform Kmeans on RNA data using size of ATAC data
                 rna_multicell_df = find_multi_cells(adata_rna_k, n_clusters=adata_atac_k.shape[0])
                 rna_multi_cells_clusters[rna_k] = rna_multicell_df # Modified 
@@ -847,7 +856,7 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
             sim_atac_all[col_ind[cls_i]] = sim_all1
             #sim_atac_all_non_scaled.append(sim_all_non_scaled1)   
 
-        print("------------------------before FW----------------------")   
+#         print("------------------------before FW----------------------")   
         time2 = time.time()
         #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)        
 
@@ -920,3 +929,253 @@ def AIscEA(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
     print(len(fracs1_all), len(fracs2_all))
     print("Final FOSCTTM XonY and YonX: ", final_foscttm1, final_foscttm2)
     return aligns_dict
+
+
+
+def AIscEA_(col_ind, rna, markers_rna, atac_cis_on_org, markers_atac):
+
+    time1 = time.time()
+    aligns_dict = dict()
+
+    for my_threshold in [0]:
+#         print(my_threshold)
+        union_markers_rna = get_union_marker_genes(markers_rna, col_ind)
+        union_mrakers_atac = get_union_marker_genes(markers_atac, col_ind)
+        intersect_marker_genes = (union_markers_rna & union_mrakers_atac)
+    #         print("Intersect: ", len(intersect_marker_genes))
+
+        # Save cells of rna and atac clusters in two seperate dictionaries
+        clusters_r = dict()
+        clusters_a = dict()
+        atac_k_all_genes = []
+        rna_k_all_genes = []
+
+        atac_multi_cells_clusters = dict()
+        rna_multi_cells_clusters = dict()  
+
+       ##################################  conserved edges ##################################
+        clusters_r_intersect = dict()
+        clusters_a_intersect = dict()
+        clusters_r_before_multi = dict()
+        clusters_a_before_multi = dict()
+        intersect_marker_r_a = get_shared_markers(markers_rna, markers_atac, my_threshold)
+
+        # clusters of scRNA
+        for rna_k, atac_k in col_ind.items():
+            print(rna_k, atac_k)   
+
+            # marker genes in this cluster of rna
+            markers_rna_k = markers_rna[str(rna_k) + "_n"].dropna().values
+            cells_in_cluster_rna = get_cells_cluster(rna, rna_k)
+            # DataFrame of expression matrix for each cluster
+            rna_k_all_genes.append(rna[rna.obs.loc[cells_in_cluster_rna].index, :].to_df())
+            # Only marker genes
+            adata_rna_k = rna[rna.obs.loc[cells_in_cluster_rna].index, markers_rna_k]
+    #             print("RNA: ", adata_rna_k.shape)
+
+            # marker genes in this cluster of ATAC
+            markers_atac_k = markers_atac[str(atac_k) + "_n"].dropna().values
+            cells_in_cluster_atac = get_cells_cluster(atac_cis_on_org, atac_k)
+            # DataFrame of expression matrix for each cluster
+            atac_k_all_genes.append(atac_cis_on_org[atac_cis_on_org.obs.loc[cells_in_cluster_atac].index, :].to_df())
+            adata_atac_k = atac_cis_on_org[atac_cis_on_org.obs.loc[cells_in_cluster_atac].index, markers_atac_k]
+    #             print("ATAC: ", adata_atac_k.shape)
+    # 
+#             print("------------------------before Kmeans----------------------")
+#             time2 = time.time()
+#             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+
+            ########################################### KMeans #################################
+            if adata_rna_k.shape[0] >= adata_atac_k.shape[0]:
+                # Perform Kmeans on RNA data using size of ATAC data
+                rna_multicell_df = find_multi_cells(adata_rna_k, n_clusters=adata_atac_k.shape[0])
+                rna_multi_cells_clusters[rna_k] = rna_multicell_df # Modified 
+                atac_multi_cells_clusters[col_ind[rna_k]] = adata_atac_k.to_df() # Not modified
+
+            elif adata_rna_k.shape[0] < adata_atac_k.shape[0]:
+                # Perform Kmeans on ATAC data using size of RNA data
+                atac_multicell_df = find_multi_cells(adata_atac_k, n_clusters=adata_rna_k.shape[0])
+                atac_multi_cells_clusters[col_ind[rna_k]] = atac_multicell_df
+                rna_multi_cells_clusters[rna_k] = adata_rna_k.to_df()
+
+#                 print("------------------------after Kmeans----------------------")
+#             time2 = time.time()
+#             print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+
+            ################# Calculate logFC for each cell based on its cluster's marker genes #################
+            log2fc_rna_cluster = calc_log2fc_vectors(rna_multi_cells_clusters[rna_k], rna.to_df()[intersect_marker_genes], verbose=False)
+            log2fc_atac_cluster = calc_log2fc_vectors(atac_multi_cells_clusters[col_ind[rna_k]], atac_cis_on_org.to_df()[intersect_marker_genes], verbose=False)
+
+            clusters_r[rna_k] = log2fc_rna_cluster
+            clusters_a[atac_k] = log2fc_atac_cluster
+
+            # Multi cells
+            log2fc_rna_cluster = calc_log2fc_vectors(rna_multi_cells_clusters[rna_k], rna.to_df()[intersect_marker_r_a[rna_k]], verbose=False)
+            log2fc_atac_cluster = calc_log2fc_vectors(atac_multi_cells_clusters[col_ind[rna_k]], atac_cis_on_org.to_df()[intersect_marker_r_a[rna_k]], verbose=False)
+
+            clusters_r_intersect[rna_k] = pd.DataFrame(log2fc_rna_cluster)
+            clusters_a_intersect[atac_k] = pd.DataFrame(log2fc_atac_cluster)
+    #             print("------------------------after multicells----------------------")
+#             time2 = time.time()
+#             print("Line 87 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+
+    #         print("------------------------before similarity----------------------")  
+#         time2 = time.time()
+#         print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+        ################################## Cell level similarities between RNA and ATAC  ##################################
+        sim_all = dict()
+        sim_all_non_scaled = dict()
+
+        ############################## Comment out start to increase speed ###################################
+    #     print_p = True
+
+        # For each cluster
+    #     for cls_i, cls_a in col_ind.items():
+    #         expr_vect1_greater_dict = dict()
+    # #             print(cls_i, cls_a)
+    #         sim_df = pd.DataFrame()
+
+    #         for cell1 in clusters_r[cls_i].index:
+    #             expr_vect1 = clusters_r[cls_i].loc[cell1]
+    #             # greater than 1 -> sort
+    #             expr_vect1_greater = expr_vect1[expr_vect1 >= 1].sort_values(ascending=False)
+    #     #         print(cell1, expr_vect1_greater)
+    #             expr_vect1_greater_dict[cell1] = expr_vect1_greater
+    # #                 if print_p:
+    # #                     print('RNA')
+    # #                     print_p = False       
+    #         time2 = time.time()
+    #         print("Line 114. >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+
+    #         print_p = True
+    #         for cell2 in clusters_a[cls_a].index:
+    #             expr_vect2 = clusters_a[cls_a].loc[cell2]
+
+    #             # Find genes of ATAC that have avg expr >= 1 which are shared and >=1  in both RNA and ATAC
+    #             expr_vect2_greater = expr_vect2[expr_vect2 >= 1]
+    #             for cell1, expr_vect1_greater in expr_vect1_greater_dict.items():
+
+    #                 # Shared genes >= 1
+    #                 shared_genes_g_1 = set(expr_vect1_greater.index).intersection(expr_vect2_greater.index)
+
+    #                 genes_to_rank = expr_vect2_greater.loc[shared_genes_g_1].index
+
+    #                  # Find rank RNA shared similairty
+    #                 marker_list = expr_vect1_greater.index.isin(expr_vect2_greater.index)
+    #                 indecies_in_rna = np.where(marker_list)[0]
+    #                 if True: #Top 100
+    #                     indecies_in_rna = np.asarray([i for i in indecies_in_rna if i <= 100])
+    # #                     if print_p:
+    # #                         print('ATAC')
+    # #                         print("#Genes shared and greater than 1 in RNA and ATAC: ", len(shared_genes_g_1))
+    # #                         print_p = False
+    # #                         print(indecies_in_rna)
+
+
+    #                 sim_df.loc[cell1, cell2] = np.sum(np.sqrt(1 / (indecies_in_rna + 1)))
+    #         sim_all[cls_i] = sim_df/np.max(sim_df.to_numpy()) # scale
+        ############################## Comment out end to increase speed ###################################
+
+        for cls_i, cls_a in col_ind.items():
+            common_genes = set(clusters_r[cls_i].columns) & set(clusters_a[cls_a].columns)
+            sim_all[cls_i] = pd.DataFrame(cosine_similarity(clusters_r[cls_i][common_genes], clusters_a[cls_a][common_genes]), index= list(clusters_r[cls_i].index), columns=list(clusters_a[cls_a].index))
+
+
+#         print("------------------------after RNA-ATAC similarity----------------------")   
+        time2 = time.time()
+#         print("Line 145. >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)
+
+
+        #print("------------------------before similarity RNA-RNA and ATAC-ATAC ----------------------")  
+        time2 = time.time()
+        #print("A >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)   
+        sim_rna_all = dict()
+        sim_atac_all = dict()
+        # For each cluster    
+        for cls_i, cls_a in col_ind.items():
+            ################## Begin Comment out for faster run ###############
+        #     ################################## Cell level similarities in RNA  #######################
+        #     sim_all1, sim_all_non_scaled11 = get_similarity(cls_i, clusters_r)
+        #     sim_rna_all[cls_i] = sim_all1
+        #     #sim_rna_all_non_scaled.append(sim_all_non_scaled1)
+        #     ################################## Cell level similarities in ATAC  #######################
+        #     sim_all1, sim_all_non_scaled1 = get_similarity(col_ind[cls_i], clusters_a)
+        #     sim_atac_all[col_ind[cls_i]] = sim_all1
+        #     #sim_atac_all_non_scaled.append(sim_all_non_scaled1)   
+            ################## End Comment out for faster run ###############
+            sim_rna_all[cls_i] = cosine_similarity(clusters_r[cls_i], clusters_r[cls_i])
+            sim_atac_all[cls_a] = cosine_similarity(clusters_a[cls_a], clusters_a[cls_a])
+
+#     print("------------------------before FW----------------------")   
+    time2 = time.time()
+    print("Line 166. >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", time2 - time1)        
+
+    for n_neigh in [3]:
+        levs = [2]
+        for lev in levs:
+            adj_rna = dict()
+            adj_atac = dict()
+            # Hyperparameter 2   
+            lambds = [0.8] # 0.2, 0.8
+            ind = 0
+            fosccttm_df = pd.DataFrame(columns=['Cluster', 'Lambda', 'fracs1_sum', 'len_fracs1', 'fracs2_sum', 'len_fracs2'])
+            n_runs = 1
+            #             true_shared_E_list = []
+            #             fracs_sum = pd.DataFrame(columns=['cluster', 'correspondence', 'sum_fracs', 'len'])
+
+            fracs1_all = []
+            fracs2_all = []
+
+            for i, atac_i in col_ind.items():
+            #                 atac_i = col_ind[i]
+                ind, col = clusters_r[i].index, clusters_r[i].index
+                vals = get_knn(clusters_r[i], n_neigh, level=lev)
+                # Symmetric KNN
+                vals = make_symm(vals, method='AND')
+                adj_rna[i] = pd.DataFrame(vals, index=ind, columns=col)
+                ind, col = clusters_a[atac_i].index, clusters_a[atac_i].index
+                vals = get_knn(clusters_a[atac_i], n_neigh, level=lev)
+                # Symmetric KNN
+                vals = make_symm(vals, method='AND')
+                adj_atac[atac_i] = pd.DataFrame(vals, index=ind, columns=col)
+
+                X = adj_rna[i].copy()
+                Y = adj_atac[atac_i].copy()
+    #                     print(X.shape, Y.shape)
+
+                X_mult_sim = pd.DataFrame(np.multiply(X, sim_rna_all[i][0]), index=list(adj_rna[i].index))
+                Y_mult_sim = pd.DataFrame(np.multiply(Y, sim_atac_all[atac_i][0]), index=list(adj_atac[atac_i]))
+
+    #                     print("************************************ Cluster ", i, "************************************ ")
+                for l in lambds:
+                    for n_iter in range(n_runs):
+                        final_P, col_ind_cells, frac, j_p, fracs_list1, fracs_list2, algn_dict = run_fw(rna, atac_cis_on_org, X_mult_sim.values, Y_mult_sim.values, sim_all[i], rna_multi_cells_clusters, atac_multi_cells_clusters, col_ind, i, 40, l) # gamma='opt' default # gamma='opt' default
+                        aligns_dict.update(algn_dict)
+                        fracs1_all = fracs1_all + fracs_list1
+                        fracs2_all = fracs2_all + fracs_list2
+                        fosccttm_df.loc[0 if pd.isnull(fosccttm_df.index.max()) else fosccttm_df.index.max() + 1] = [int(i), l, np.sum(fracs_list1), len(fracs_list1), np.sum(fracs_list2), len(fracs_list2)]
+            #                         fracs_sum.loc[0 if pd.isnull(fracs_sum.index.max()) else fracs_sum.index.max() + 1] = [i, col_ind[i], frac, len_fo]
+
+            #                 np.save(str(i) + "_" + str(col_ind[i]) + str(n_neigh) + 'knn_marker_genes_thr_' + str(my_threshold) + '_level_' + str(lev) + "_" +  str(n_iter) +  '_fracs1.npy', fracs_list1) # save
+            #                 np.save(str(i) + "_" + str(col_ind[i])  + str(n_neigh) + 'knn_marker_genes_thr_' + str(my_threshold) + '_level_' + str(lev) +  "_" + str(n_iter) +   '_fracs2.npy', fracs_list2) # save 
+            #display(fosccttm_df)
+    #                 print(n_neigh, my_threshold)
+            #             fosccttm_df.to_csv(str(n_neigh) + 'knn_marker_genes_thr_' + str(my_threshold) + '_level_' + str(lev) + '.csv', index=True, header=True, sep='\t')
+
+    # X on Y
+    final_foscttm1 = fosccttm_df['fracs1_sum'].sum() / (fosccttm_df['len_fracs1'].sum() * (len(atac_cis_on_org) - 1))
+    # Y on X
+    final_foscttm2 = fosccttm_df['fracs2_sum'].sum() / (fosccttm_df['len_fracs2'].sum() * (len(rna) - 1))
+
+    print("lambda, lev, n_neigh, n_iter, FOSCTTM1, FOSCTTM2: ",  l, lev, n_neigh, n_iter, final_foscttm1, final_foscttm2)
+    print(fosccttm_df['len_fracs1'].sum(), fosccttm_df['len_fracs2'].sum())
+
+    fracs1_all = [i / (len(atac_cis_on_org) - 1) for i in fracs1_all]
+    fracs2_all = [i / (len(rna) - 1) for i in fracs2_all]
+
+
+
+    # Save fracs_all1 and fracs_all2
+    print(len(fracs1_all), len(fracs2_all))
+    print("Final FOSCTTM XonY and YonX: ", final_foscttm1, final_foscttm2)
+    return aligns_dict, fracs1_all, fracs2_all
