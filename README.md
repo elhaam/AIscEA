@@ -1,4 +1,4 @@
-# AIscEA: Integration of Single-cell Gene Expression and Chromatin Accessibility via Their Biological Consistency
+# AIscEA: Unsupervised Integration of Single-cell Gene Expression and Chromatin Accessibility via Their Biological Consistency
 
 ![alt text](img/overview_new_only.png)
 
@@ -17,8 +17,8 @@ This step includes Preprocessing single-cell ATAC-seq data for AIscEA. More deta
 
 ### Alignment using AIscEA method
 IPython Jupyter notebook files are provided for various real-world datasets, including:
-1. SNARE-seq Mouse Dataset 5k [results in IPython notebook](https://github.com/elhaam/AIscEA/blob/main/examples/PBMC_5k.ipynb)
-2. SNARE-seq Mouse Dataset 10k [results in IPython notebook](https://github.com/elhaam/AIscEA/blob/main/examples/PBMC_10k.ipynb)
+1. SNARE-seq Mouse Dataset 5k [results in IPython notebook](https://github.com/elhaam/AIscEA/blob/main/examples/SNARE_Mus_5k.ipynb)
+2. SNARE-seq Mouse Dataset 10k [results in IPython notebook](https://github.com/elhaam/AIscEA/blob/main/examples/SNARE_Mus_10k.ipynb)
 3. PBMC 3k [results in IPython notebook](https://github.com/elhaam/AIscEA/blob/main/examples/PBMC_3k.ipynb)
 4. PBMC 12k [results in IPython notebook](https://github.com/elhaam/AIscEA/blob/main/examples/PBMC_12k.ipynb)
 
