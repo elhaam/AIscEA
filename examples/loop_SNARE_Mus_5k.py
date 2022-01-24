@@ -15,10 +15,6 @@ warnings.filterwarnings('ignore')
 res_df = pd.DataFrame(columns=['res1', 'cls_r_raw', 'cls_r', 'sil_r', 'res2', 'cls_a_raw', 'cls_a', 'sil_a', 'len(RNA)', 'len(ATAC)', 'Overlap'])
 for res1 in np.arange(0.1, 1., 0.05):
     for res2 in np.arange(0.1, 1., 0.05):
-#         for n_pcs in [0]:
-#             for hvg in [True]:
-
-
         ############################ High_var = True ######################################
         input_dir = "/home/ejafari/alignment/downstream/data/SNAREseq/Mouse/5k/"
         # Find marker genes of scRNAseq data
